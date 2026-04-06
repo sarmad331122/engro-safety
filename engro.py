@@ -17,10 +17,7 @@ except Exception as e:
     st.stop()
 
 
-# Initialize Mixer
-if 'mixer_init' not in st.session_state:
-    pygame.mixer.init()
-    st.session_state.mixer_init = True
+
 
 # --- 2. STATE MANAGEMENT ---
 if 'logs' not in st.session_state:
