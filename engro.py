@@ -2,17 +2,19 @@ import streamlit as st
 import requests
 import time
 import pandas as pd
-import pygame
 from twilio.rest import Client
 from datetime import datetime
 
 # --- 1. SETUP ---
-OWM_API_KEY = "0be048fe25f83d2c9f48ef6d9c034905"
-CITY = "Vehari"
-TWILIO_SID = "ACc5ecb6a6af751513b0c1f3baa2e41804"
-TWILIO_TOKEN = "3cabc30abb352a278e6302d14d8ff43f"
-WHATSAPP_TARGET = "whatsapp:+821046985865"
-WHATSAPP_FROM = "whatsapp:+14155238886"
+try:
+    OWM_API_KEY = st.secrets["OWM_API_KEY"]
+    TWILIO_SID = st.secrets["TWILIO_SID"]
+    TWILIO_TOKEN = st.secrets["TWILIO_TOKEN"]
+    WHATSAPP_FROM = st.secrets["WHATSAPP_FROM"]
+    WHATSAPP_TARGET = st.secrets["WHATSAPP_TARGET"]
+except Exception as e:
+    st.error("Secrets are not configured in Streamlit Cloud!")
+    st.stop()
 
 
 # Initialize Mixer
@@ -46,20 +48,13 @@ def send_whatsapp(text):
         log_event(f"⚠️ WhatsApp Failed: {e}")
 
 def trigger_alert(filename, label):
-    """COMBINED: Plays audio AND sends WhatsApp automatically."""
-    try:
-        # Audio Logic
-        if pygame.mixer.music.get_busy():
-            pygame.mixer.music.stop()
-        pygame.mixer.music.unload()
-        pygame.mixer.music.load(filename)
-        pygame.mixer.music.play()
-        
-        # Logging & WhatsApp Logic
-        log_event(f"🔊 Alert Triggered: {label}")
-        send_whatsapp(f"Engro Safety Alert: {label}")
-    except Exception as e:
-        log_event(f"⚠️ Error playing {filename}: {e}")
+    """Sends WhatsApp and prepares audio for the browser."""
+    log_event(f"🔊 Alert: {label}")
+    send_whatsapp(f"Engro Safety Alert: {label}")
+    
+    # Store the latest alert in session state so the UI can show the audio player
+    st.session_state.current_audio = filename
+    st.session_state.audio_label = label
 
 def get_weather():
     try:
@@ -178,6 +173,17 @@ with col2:
     with st.container(border=True, height=350):
         for log in reversed(st.session_state.logs):
             st.write(log)
+
+if 'current_audio' in st.session_state and st.session_state.current_audio:
+    with st.sidebar:
+        st.markdown("### 📢 Active Alert")
+        st.info(st.session_state.get('audio_label', 'Safety Alert'))
+        # The actual player
+        st.audio(st.session_state.current_audio, format="audio/mp3", autoplay=True)
+        
+        if st.button("🗑️ Clear Audio Player"):
+            st.session_state.current_audio = None
+            st.rerun()
 
 # --- 5. AUTOMATED TIMERS & WEATHER ---
 if st.session_state.start_time:
